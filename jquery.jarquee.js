@@ -34,20 +34,26 @@
  * Date: 2013-10-11
  * Revision: 6 (Updated for JQuery 1.10+ by Sam T)
  *  - replaced deprecated calls to .bind() with calls to .on() for compatibility with JQuery 1.10 and above.
-  */
+ *
+ * Date: 2014-03-11
+ * Revision: 7 (Updated for JSHint and general cleanup)
+ *  - better formatted for Google Closure Compiler
+ * 
+ */
+ /*global jQuery*/ 
 (function ($) {
+	"use strict";
     $.fn.jarquee = function (options) {
 
+		var self = $.fn.jarquee;
+	
         // Set the options.
-        options = $.extend({}, $.fn.jarquee.defaults, options);
-        $.fn.jarquee.options = options;
-        $.fn.jarquee.object = this;
+        options = $.extend({}, self.defaults, options);
+        self.options = options;
+        self.object = this;
 
-        if (options.URL != '') {
-            if (options.debug == true) {
-                // Attempt to load content via AJAX/JSON    
-                $(document).ajaxError(function (ev, req, opt, err) { alert("Error: " + req.responseText); });
-            }
+        if (options.URL !== '') {
+            
 
             // If there is "##" in the URL, replace it with the Rel
             var myURL = options.URL;
@@ -57,49 +63,58 @@
             }
 
             // Add the callback reference to the URL
-            if (myURL.indexOf("callback=?") == -1) {
-                myURL += (myURL.indexOf("?") == -1 ? "?callback=?" : "&callback=?");
+            if (myURL.indexOf("callback=?") === -1) {
+                myURL += (myURL.indexOf("?") === -1 ? "?callback=?" : "&callback=?");
             }
 
-            $.getJSON(myURL, function (data) {
-                if (options.debug == true) { alert(data); }
+			// Switch to promise style.
+            $.getJSON(myURL).done(function (data) {
+                if (options.debug === true) { console.log(data); }
                 if (data.status_code >= 0) {
-                    $.fn.jarquee.content = data.data_object;
-                    return $.fn.jarquee.init($.fn.jarquee.object, true);
+                    self.content = data.data_object;
+                    return self.init(self.object, true);
                 }
-            });
+            }).fail(function (ev, req) {
+				if (options.debug === true) {
+					console.log("Error: " + req.responseText); 
+				}
+			});
+			
             // pass back the jQuery object regardless of outcome
             return this;
 
         } else {
             // If not loading content, go ahead and init the banner
-            return $.fn.jarquee.init(this, false);
+            return self.init(this, false);
         }
     };
 
     $.fn.jarquee.init = function (jqArr, useLoadedContent) {
         // Go through the matched elements and return the jQuery object.
-        var options = $.fn.jarquee.options;
-        var content = $.fn.jarquee.content;
+		var self = $.fn.jarquee,
+			options = self.options,
+			content = self.content;
 
         return $(jqArr).each(function () {
-            var obj = $(this);
-            var active = true;
+            var $obj = $(this),
+				active = true,
+				marqueeWidth,
+				contentWidth;
 
             // Check for missing descendants DIV and Span. Create if needed.
-            if (!obj.find('div span').size()) {
+            if (!$obj.find('div span').size()) {
                 // Pack everything inside.
-                obj.wrapInner('<span class="jarquee_content_wrapper" />').wrapInner('<div class="jarquee_inner" />');
+                $obj.wrapInner('<span class="jarquee_content_wrapper" />').wrapInner('<div class="jarquee_inner" />');
             }
 
             // Handle loaded content (if needed)
-            if (useLoadedContent && $.fn.jarquee.content != '') {
-                var bannerID = obj.attr('rel');
-                if (options.debug == true) {
-                    alert("UseLoaded, Need Banner " + bannerID);
+            if (useLoadedContent && $.fn.jarquee.content !== '') {
+                var bannerID = $obj.attr('rel');
+                if (options.debug === true) {
+                    console.log("UseLoaded, Need Banner " + bannerID);
                 }
                 // Some way to only run a loaded banner if needed.
-                var active = false;
+                active = false;
 
                 // Loop through the loaded content to see if there's a match.
                 for (var inc in content) {
@@ -108,26 +123,26 @@
                         // Load the data.
 
                         // Check for empty content
-                        if (content[inc].content != "") {
+                        if (content[inc].content !== "") {
                             // Replace the content on the page
-                            obj.find('span').html(content[inc].content);
+                            $obj.find('span').html(content[inc].content);
                             // Let us know it's there to animate.
                             active = true;
                         }
                         if (active) {
                             // Check for onLoad and run it if available
-                            if (options.onLoad != null) {
+                            if (options.onLoad !== null) {
                                 options.onLoad();
                             }
 
                             // Make sure the banner is visible (might be hidden if empty)
-                            if (!obj.is(':visible')) {
-                                obj.show();
+                            if (!$obj.is(':visible')) {
+                                $obj.show();
                             }
 
                             // Also check if the parent is visible (most banners are wrapped).
-                            if (!obj.parent().is(':visible')) {
-                                obj.parent().show();
+                            if (!$obj.parent().is(':visible')) {
+                                $obj.parent().show();
                             }
                         }
                     }
@@ -135,41 +150,41 @@
             }
 
             // Important variables.
-            var marqueeWidth = obj.width(); 							// Inner width of the banner.
-            obj.children('.jarquee_inner').width(options.baseWidth).css("position", "absolute"); // Widen to make sure span is on one line;
-            var contentWidth = obj.find('div span').outerWidth(); 	// Width of content, including padding & border.
+            marqueeWidth = $obj.width();		// Inner width of the banner.
+				
+            $obj.children('.jarquee_inner').width(options.baseWidth).css("position", "absolute"); // Widen to make sure span is on one line;
+            contentWidth = $obj.find('div span').outerWidth();		// Width of content, including padding & border.
 
             //Check for start centered
             if (options.center && marqueeWidth > contentWidth) {
-                var offset = parseInt(marqueeWidth - contentWidth) >> 1;
-                obj.children('.jarquee_inner').css('left', offset);
+                $obj.children('.jarquee_inner').css('left', (parseInt(marqueeWidth - contentWidth) >> 1));
             } else {
                 if (options.offset) {
                     // Use the offset option
-                    obj.children('.jarquee_inner').css('left', options.offset);
+                    $obj.children('.jarquee_inner').css('left', options.offset);
                 }
             }
 
-            obj.css({ 'position': 'relative', 'overflow': 'hidden' });
-            obj.find('.jarquee_inner').width(contentWidth + 20).css({ 'width': ('' + (contentWidth + 20)), 'position': 'absolute' });
+            $obj.css({ 'position': 'relative', 'overflow': 'hidden' });
+            $obj.find('.jarquee_inner').width(contentWidth + 20).css({ 'width': ('' + (contentWidth + 20)), 'position': 'absolute' });
 
-            $.fn.jarquee.object = obj;
-            $.fn.jarquee.options = options;
-            $.fn.jarquee.settings = {
+			// No support for multiple marquees.
+            self.object = $obj;
+            self.settings = {
                 mW: marqueeWidth,
                 cW: contentWidth
             };
 
-            if (active == true) {
+            if (active === true) {
                 if (options.pause) {
-                    $(document).on('mouseenter', this, function () { $.fn.jarquee.action.stop(); });
-                    $(document).on('mouseleave', this, function () { $.fn.jarquee.move(); });
+                    $obj.on('mouseenter', function () { self.action.stop(); })
+						.on('mouseleave', function () { self.move(); });
                 }
 
                 if (options.delay) {
-                    setTimeout("$.fn.jarquee.move();", options.delay);
+                  setTimeout(function(){ self.move(); }, options.delay);
                 } else {
-                    $.fn.jarquee.move();
+                    self.move();
                 }
             }
         });
@@ -191,24 +206,25 @@
     $.fn.jarquee.content = "";
     // Public Functions	
     $.fn.jarquee.move = function () {
-        var obj = $.fn.jarquee.object;
-        var options = $.fn.jarquee.options;
-        var settings = $.fn.jarquee.settings;
-
-        var innerLeft = obj.find('div.jarquee_inner').css('left');
+		var self = $.fn.jarquee,
+			$obj = self.object,
+			options = self.options,
+			settings = self.settings,
+			
+			innerLeft = $obj.find('div.jarquee_inner').css('left'),
+			endGoal, duration;
+			
         innerLeft = isNaN(innerLeft.replace('px', '')) ? 0 : innerLeft.replace('px', '');
-        var endGoal = (-1 * (settings.cW * -1 - innerLeft));
-        var duration = ((settings.cW - (innerLeft * -1)) / (options.speed * 20)) * 1000;
-
-        // Test adjustment to possibly help smoothness
-        var dur_temp = parseInt(duration / endGoal) * endGoal;
-        if (duration % endGoal > endGoal / 2) {
+        endGoal = (-1 * (settings.cW * -1 - innerLeft));
+        duration = ((settings.cW - (innerLeft * -1)) / (options.speed * 20)) * 1000;
+        
+		if (duration % endGoal > endGoal / 2) {
             duration += parseInt(endGoal >> 1);
         }
 
-        $.fn.jarquee.action = $.fn.jarquee.object.children('.jarquee_inner').animate({ left: '-=' + endGoal }, duration, 'linear', function () {
-            $.fn.jarquee.object.find('.jarquee_inner').css('left', $.fn.jarquee.settings.mW);
-            $.fn.jarquee.move();
+        self.action = $obj.children('.jarquee_inner').animate({ left: '-=' + endGoal }, duration, 'linear', function () {
+            $obj.find('.jarquee_inner').css('left', settings.mW);
+            self.move();
         });
     };
 })(jQuery);
